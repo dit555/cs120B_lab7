@@ -52,8 +52,6 @@ void TimerSet(unsigned long M){
 
 enum State {Start, s1, s2, s22, s3, stopP, stopN} state;
 
-unsigned char score = 5;
-
 void Tick(){
 	unsigned char temp = ~PINA;
 	switch(state){
@@ -81,8 +79,6 @@ void Tick(){
 int main(void) {
     DDRA = 0x00; PORTA = 0xFF;
     DDRB = 0xFF; PORTB = 0x00;
-    DDRC = 0xFF; PORTC = 0x00;
-    DDRD = 0xFF; PORTD = 0x00;
     TimerSet(300);
     TimerOn();
     //unsigned char tmpB = 0x00;
