@@ -9,6 +9,7 @@
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include "io.h"
 #ifdef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
@@ -50,32 +51,65 @@ void TimerSet(unsigned long M){
 	_avr_timer_cntcurr = _avr_timer_M;
 }
 
-enum State {Start, s1, s2, s22, s3, stopP, stopN} state;
+enum State {Start, Wait, Inc, Dec, Reset} state;
 
-unsigned char score = 5;
-
+unsigned char time = 10;
+unsigned char temp2 = 0x00;
 void Tick(){
-	unsigned char temp = ~PINA;
-	switch(state){
-		case Start: state = s1; break;
-		case s1: state = (temp == 0x01) ? stopP : s2 ; break;
-		case s2: state = (temp == 0x01) ? stopP : s3; break;
-		case s3: state = (temp == 0x01) ? stopP: s22; break;
-		case s22: state = (temp == 0x01) ? stopP : s1; break;
-		case stopP: state = (temp == 0x01) ? stopP : stopN; break;
-		case stopN: state = (temp == 0x00) ? stopN : s1; break;
-		
-		default: state = Start; break;
-	}
+        unsigned char temp = ~PINA;
+        unsigned char *letter = "0";
+        switch(state){ //transitions
+                case Start: temp2 = 0x07; state = Wait; break;
+                case Wait:
+                        if (temp == 0x01){
+                                state = Inc;
+			}
+                        else if (temp == 0x02){
+                                state = Dec;
+                        }
+                        else if (temp == 0x03)
+                                state = Reset;
+                        else
+                                state = Wait;
+                        break;
+                
+                case Inc:
+			if ((temp == 0x01) && (time > 0)){
+			 	state = Inc;
+				time--;
+			}
+			else{	
+				time = 10;
+				state = Wait; break;
+			}
+                	break;
+                case Dec:
+		       if ((temp == 0x02) && (time > 0)){
+                                state = Dec;
+                                time--;
+                        }
+                        else{
+                                time = 10;
+                                state = Wait; break;
+                        }	
+			break;
+                case Reset: state = Wait; break;
+                
+                default: state = Start; break;
 
-	switch(state){
-		case Start: PORTB = 0x01; break;
-		case s1: PORTB = 0x01; break;
-		case s2: PORTB = 0x02; break;
-		case s22: PORTB = 0x02; break;
-		case s3: PORTB = 0x04; break;
-		default: break;
-	}
+        }
+
+        switch(state){
+                case Start: break;
+                case Wait: break;
+                case Dec: if(temp2 > 0 && time == 10) temp2--; break;
+                case Inc: if(temp2 != 9 && time == 10) temp2++; break;
+                case Reset: temp2 = 0x00; break;
+                default: break;
+
+        }
+    	letter[0] = temp2 + letter[0];
+	LCD_DisplayString(1, letter);
 }
 
 int main(void) {
@@ -83,10 +117,12 @@ int main(void) {
     DDRB = 0xFF; PORTB = 0x00;
     DDRC = 0xFF; PORTC = 0x00;
     DDRD = 0xFF; PORTD = 0x00;
-    TimerSet(300);
+    TimerSet(100);
     TimerOn();
     //unsigned char tmpB = 0x00;
-
+    LCD_init();
+    LCD_ClearScreen();
+    LCD_Cursor(1);
     
     while (1) {
 	

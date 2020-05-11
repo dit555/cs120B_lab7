@@ -9,6 +9,7 @@
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include "io.h"
 #ifdef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
@@ -50,19 +51,58 @@ void TimerSet(unsigned long M){
 	_avr_timer_cntcurr = _avr_timer_M;
 }
 
-enum State {Start, s1, s2, s22, s3, stopP, stopN} state;
+enum State {Start, s1, s2, s22, s3, stopP, stopN, vict} state;
+
+unsigned char score = 5;
+unsigned char win = 0;
 
 void Tick(){
 	unsigned char temp = ~PINA;
+	unsigned char *letter = "0";
 	switch(state){
 		case Start: state = s1; break;
-		case s1: state = (temp == 0x01) ? stopP : s2 ; break;
-		case s2: state = (temp == 0x01) ? stopP : s3; break;
-		case s3: state = (temp == 0x01) ? stopP: s22; break;
-		case s22: state = (temp == 0x01) ? stopP : s1; break;
+		case s1: 
+			if (temp == 0x01){
+				state = stopP;
+		 		score--;		
+			}
+			else
+				state = s2;
+			break;
+		case s2: 
+			if (temp == 0x01){ 
+                                if (score >= 8)
+                                	state = vict;
+				else {
+					state = stopP;
+                                	score++;
+                        	}
+			}
+                        else
+                                state = s3;	break;
+		case s3: 
+		       if (temp == 0x01){ 
+                                state = stopP;
+                                score--;
+                        }
+                        else
+                                state = s22;
+			break;
+		case s22: 
+		       if (temp == 0x01){
+			      	if (score >= 8)
+                                        state = vict; 
+				else {
+					state = stopP;
+                                	score++;
+				}
+                        }
+                        else
+                                state = s1;
+			break;
 		case stopP: state = (temp == 0x01) ? stopP : stopN; break;
 		case stopN: state = (temp == 0x00) ? stopN : s1; break;
-		
+		case vict: state = vict; break;
 		default: state = Start; break;
 	}
 
@@ -72,15 +112,29 @@ void Tick(){
 		case s2: PORTB = 0x02; break;
 		case s22: PORTB = 0x02; break;
 		case s3: PORTB = 0x04; break;
+		case vict: win = 1; PORTB = 0xFF; break;
 		default: break;
 	}
+	if(win == 0){
+		letter[0] = letter[0] + score;
+		LCD_DisplayString(1, letter);
+	}
+	else
+		LCD_DisplayString(1, "Victory!");
 }
 
 int main(void) {
     DDRA = 0x00; PORTA = 0xFF;
     DDRB = 0xFF; PORTB = 0x00;
+    DDRC = 0xFF; PORTC = 0x00;
+    DDRD = 0xFF; PORTD = 0x00;
     TimerSet(300);
     TimerOn();
+
+    LCD_init();
+
+    LCD_ClearScreen();
+    LCD_Cursor(1);
     //unsigned char tmpB = 0x00;
 
     
